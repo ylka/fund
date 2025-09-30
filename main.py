@@ -41,7 +41,8 @@ datas = []
 for fund_code in tqdm(column_data):
     datas.append({
         'fund_code': fund_code,
-        'net_value': get_fund_history(fund_code).get('net_value', None)
+        'net_value': get_fund_history(fund_code).get('net_value', None),
+        'accumulated_value': get_fund_history(fund_code).get('accumulated_value', None),
     })
 
 save_to_csv(datas, 'update_s_plan.csv')
