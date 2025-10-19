@@ -5,6 +5,9 @@ on:
     - cron: '0 0 * * 2-6'  # 周二到周六 UTC 0点 (北京时间8点)
   workflow_dispatch:
 
+permissions:
+  contents: write 
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -26,8 +29,8 @@ jobs:
     
     - name: Commit changes
       run: |
-        git config --local user.email "ylka_h@outlook.com"
-        git config --local user.name "Marshall"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
         git add .
         git diff --staged --quiet || git commit -m "Auto update fund data $(date)"
         git push
