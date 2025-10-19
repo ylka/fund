@@ -26,8 +26,8 @@ jobs:
     
     - name: Commit changes
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        git config --local user.email "ylka_h@outlook.com"
+        git config --local user.name "Marshall"
         git add .
         git diff --staged --quiet || git commit -m "Auto update fund data $(date)"
         git push
