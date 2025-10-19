@@ -40,9 +40,23 @@ datas = []
 
 for fund_code in tqdm(column_data):
     datas.append({
+        'date': get_fund_history(fund_code).get('date', None),
         'fund_code': fund_code,
         'net_value': get_fund_history(fund_code).get('net_value', None),
         'accumulated_value': get_fund_history(fund_code).get('accumulated_value', None),
     })
 
 save_to_csv(datas, 'update_s_plan.csv')
+
+with open('README.md', 'w', encoding='utf-8') as f:
+    f.write(f'# S 计划持仓最新净值\n')
+    f.write(f'| 代码 | 名称 | 成本 | 最新净值（{datas[0]["date"]}) | 收益率 |\n')
+    f.write(f'| --- | --- | --- | --- | --- |\n')
+
+    for i, val in enumerate(df.to_numpy()):
+        code, name, cost = val
+        net_value = datas[i]["net_value"]
+        yield_rate = f"{(float(net_value)/float(cost) - 1) * 100:.2f}%"
+        f.write(f'| {code} | {name} | {cost} | {net_value} | {yield_rate} |\n')
+
+print("Data saved to update_s_plan.csv and README.md")
