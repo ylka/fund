@@ -3,6 +3,7 @@ name: Fund Update
 on:
   schedule:
     - cron: '0 0 * * 2-6'  # 周二到周六 UTC 0点 (北京时间8点)
+  workflow_dispatch:
 
 jobs:
   update:
