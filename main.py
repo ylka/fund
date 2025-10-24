@@ -35,6 +35,7 @@ def save_to_csv(data, filename):
 
 
 df = pd.read_csv('s_plan.csv', header=None, dtype=str)
+# df = pd.read_csv('my-code.csv', header=None, dtype=str)
 column_data = df[0].tolist()
 datas = []
 
