@@ -28,6 +28,25 @@ def get_fund_history(fund_code, pages=1):
 
     return all_data
 
+# https://m.dayfund.cn/ajs/ajaxdata.shtml?showtype=getfundvalue&fundcode=020433
+
+
+def get_fund_value(fund_code):
+    url = f'https://m.dayfund.cn/ajs/ajaxdata.shtml?showtype=getfundvalue&fundcode={fund_code}'
+    response = requests.get(url)
+    # 2026-01-14|1.2400|1.2400|0.0764|6.57%|-0.11%|-0.0013|1.2387|1.1636|2026-01-15|09:39:59
+    if response.status_code == 200:
+        vals = response.content.decode('utf-8').split('|')
+        if len(vals) > 1:
+            record = {
+                'date': vals[0].strip(),
+                'net_value': vals[1].strip(),
+                'accumulated_value': vals[2].strip(),
+                'growth_rate': vals[4].strip()
+            }
+
+    return record
+
 
 def save_to_csv(data, filename):
     df = pd.DataFrame(data)
@@ -40,7 +59,7 @@ column_data = df[0].tolist()
 datas = []
 
 for fund_code, name, cost in tqdm(df.to_numpy()):
-    fund_data = get_fund_history(fund_code)
+    fund_data = get_fund_value(fund_code)
     data = {
         'date': fund_data.get('date', None),
         'fund_code': fund_code,
