@@ -1,7 +1,35 @@
+import os
+
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from tqdm import tqdm
+from email.mime.text import MIMEText
+import smtplib
+
+
+def send_email(result):
+    # 发送邮件通知
+    sender_email = os.getenv('SENDER_EMAIL', "460646359@qq.com")
+    receiver_email = os.getenv('RECEIVER_EMAIL', "460646359@qq.com")
+    password = os.getenv('EMAIL_PASSWORD')  # 从环境变量读取密码
+
+    if not password:
+        print('password error')
+    else:
+        msg = MIMEText(result)
+        msg['Subject'] = "S 计划最新数据"
+        msg['From'] = sender_email
+        msg['To'] = receiver_email
+
+        # 连接到 SMTP 服务器并发送邮件
+        server = smtplib.SMTP_SSL('smtp.qq.com', 465)
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver_email, msg.as_string())
+        server.quit()
+        print("邮件已发送")
+
+# Deprecation
 
 
 def get_fund_history(fund_code, pages=1):
@@ -51,38 +79,51 @@ def get_fund_value(fund_code):
 def save_to_csv(data, filename):
     df = pd.DataFrame(data)
     df.to_csv(filename, index=False)
+    return df.to_csv(index=False)
 
 
-df = pd.read_csv('s_plan.csv', header=None, dtype=str)
-# df = pd.read_csv('my-code.csv', header=None, dtype=str)
-column_data = df[0].tolist()
-datas = []
+email_contents = []
 
-for fund_code, name, cost in tqdm(df.to_numpy()):
-    fund_data = get_fund_value(fund_code)
-    data = {
-        'date': fund_data.get('date', None),
-        'fund_code': fund_code,
-        'net_value': fund_data.get('net_value', None),
-        'accumulated_value': fund_data.get('accumulated_value', None),
-        'name': name,
-        'cost': cost,
-        'yield_rate': float(fund_data.get('net_value', None))/float(cost) - 1
-    }
-    datas.append(data)
+# df = pd.read_csv('s_plan.csv', header=None, dtype=str)
+for file in ["s_plan.csv", "my-code.csv", "oversea-code.csv"]:
+    df = pd.read_csv(file, header=None, dtype=str)
+    column_data = df[0].tolist()
+    datas = []
 
-save_to_csv(datas, 'update_s_plan.csv')
+    for fund_code, name, cost in tqdm(df.to_numpy()):
+        fund_data = get_fund_value(fund_code)
+        data = {
+            'date': fund_data.get('date', None),
+            'fund_code': fund_code,
+            'net_value': fund_data.get('net_value', None),
+            'accumulated_value': fund_data.get('accumulated_value', None),
+            'name': name,
+            'cost': cost,
+            'yield_rate': float(fund_data.get('net_value', None))/float(cost) - 1
+        }
+        datas.append(data)
 
-with open('README.md', 'w', encoding='utf-8') as f:
-    f.write(f'# S 计划持仓最新净值\n')
-    f.write(f'| 代码 | 名称 | 成本 | 最新净值（{datas[0]["date"]}) | 收益率 |\n')
-    f.write(f'| --- | --- | --- | --- | --- |\n')
+    
+    reports = []
+    if file == "s_plan.csv":
+        reports.append('# S 计划持仓最新净值\n')
+    elif file == "oversea-code.csv":
+        reports.append('# S 计划海外最新净值\n')
+    else:
+        reports.append('# 我的持仓最新净值\n')
+
+    reports.append(f'代码,名称,成本,最新净值,收益率\n')
 
     result = sorted(datas, key=lambda x: x["yield_rate"])
     for val in result:
         net_value = val["net_value"]
         yield_rate = f"{val['yield_rate'] * 100:.2f}%"
-        f.write(
-            f'| {val["fund_code"]} | {val["name"]} | {val["cost"]} | {net_value} | {yield_rate} |\n')
+        reports.append(
+            f'{val["fund_code"]},{val["name"]},{val["cost"]},{net_value},{yield_rate}\n')
 
-print("Data saved to update_s_plan.csv and README.md")
+    email_contents.append("".join(reports))
+    email_contents.append("\r\n")
+
+result = "".join(email_contents)
+print(result)
+send_email(result)
