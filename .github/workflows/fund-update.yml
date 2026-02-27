@@ -25,6 +25,8 @@ jobs:
         pip install -r requirements.txt
     
     - name: Run fund update
+      env:
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
       run: python main.py
     
     # - name: Commit changes
