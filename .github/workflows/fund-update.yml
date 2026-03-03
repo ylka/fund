@@ -2,7 +2,7 @@ name: Fund Update
 
 on:
   schedule:
-    - cron: '0 1 * * 2-6'  # 周二到周六 UTC 0点 (北京时间8点)
+    - cron: '0 17 * * 1-5'  # 周一到周五 UTC 17点 即 北京时间 周二到周六 凌晨一点
   workflow_dispatch:
 
 # permissions:
