@@ -85,7 +85,7 @@ def save_to_csv(data, filename):
 email_contents = []
 
 # df = pd.read_csv('s_plan.csv', header=None, dtype=str)
-for file in ["s_plan.csv", "my-code.csv", "oversea-code.csv"]:
+for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
     df = pd.read_csv(file, header=None, dtype=str)
     column_data = df[0].tolist()
     datas = []
@@ -103,7 +103,6 @@ for file in ["s_plan.csv", "my-code.csv", "oversea-code.csv"]:
         }
         datas.append(data)
 
-    
     reports = []
     if file == "s_plan.csv":
         reports.append('# S 计划持仓最新净值\n')
