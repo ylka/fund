@@ -72,8 +72,9 @@ def get_fund_value(fund_code):
                 'accumulated_value': vals[2].strip(),
                 'growth_rate': vals[4].strip()
             }
+            return record
 
-    return record
+    return None
 
 
 def save_to_csv(data, filename):
@@ -92,16 +93,17 @@ for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
 
     for fund_code, name, cost in tqdm(df.to_numpy()):
         fund_data = get_fund_value(fund_code)
-        data = {
-            'date': fund_data.get('date', None),
-            'fund_code': fund_code,
-            'net_value': fund_data.get('net_value', None),
-            'accumulated_value': fund_data.get('accumulated_value', None),
-            'name': name,
-            'cost': cost,
-            'yield_rate': float(fund_data.get('net_value', None))/float(cost) - 1
-        }
-        datas.append(data)
+        if fund_data:
+            data = {
+                'date': fund_data.get('date', None),
+                'fund_code': fund_code,
+                'net_value': fund_data.get('net_value', None),
+                'accumulated_value': fund_data.get('accumulated_value', None),
+                'name': name,
+                'cost': cost,
+                'yield_rate': float(fund_data.get('net_value', None))/float(cost) - 1
+            }
+            datas.append(data)
 
     reports = []
     if file == "s_plan.csv":
