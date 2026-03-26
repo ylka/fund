@@ -74,6 +74,7 @@ def get_fund_value(fund_code):
             }
             return record
 
+    print(f'request err: {response.status_code}')
     return None
 
 
