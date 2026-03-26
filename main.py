@@ -33,8 +33,6 @@ def send_email(result):
 
 
 def get_fund_history(fund_code, pages=1):
-    all_data = {}
-
     url = f'http://fund.eastmoney.com/f10/F10DataApi.aspx?type=lsjz&code={fund_code}&page={pages}&per=1'
     response = requests.get(url)
     html_content = response.content
@@ -52,9 +50,9 @@ def get_fund_history(fund_code, pages=1):
                     'growth_rate': columns[3].text.strip()
                 }
 
-                all_data = record
+                return record
 
-    return all_data
+    return None
 
 # https://m.dayfund.cn/ajs/ajaxdata.shtml?showtype=getfundvalue&fundcode=020433
 
@@ -94,6 +92,9 @@ for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
 
     for fund_code, name, cost in tqdm(df.to_numpy()):
         fund_data = get_fund_value(fund_code)
+        if not fund_data:
+            fund_data = get_fund_history(fund_code)
+            
         if fund_data:
             data = {
                 'date': fund_data.get('date', None),
@@ -105,6 +106,10 @@ for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
                 'yield_rate': float(fund_data.get('net_value', None))/float(cost) - 1
             }
             datas.append(data)
+
+    if datas == []:
+        print(f'{file} no data')
+        continue
 
     reports = []
     if file == "s_plan.csv":
@@ -128,4 +133,6 @@ for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
 
 result = "".join(email_contents)
 print(result)
-send_email(result)
+
+if result:
+    send_email(result)
