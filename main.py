@@ -3,7 +3,6 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from tqdm import tqdm
 from email.mime.text import MIMEText
 import smtplib
 
@@ -72,7 +71,7 @@ def get_fund_value(fund_code):
             }
             return record
         else:
-            print("data err")
+            print(f"data err: {response.content}")
 
     else:
         print(f'request err: {response.status_code}')
@@ -94,7 +93,7 @@ for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
     column_data = df[0].tolist()
     datas = []
 
-    for fund_code, name, cost in tqdm(df.to_numpy()):
+    for fund_code, name, cost in df.to_numpy():
         fund_data = get_fund_value(fund_code)
         # if not fund_data:
         #     fund_data = get_fund_history(fund_code)
