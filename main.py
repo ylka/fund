@@ -51,6 +51,7 @@ def get_fund_history(fund_code, pages=1):
 
                 return record
 
+    print('data err')
     return None
 
 # https://m.dayfund.cn/ajs/ajaxdata.shtml?showtype=getfundvalue&fundcode=020433
@@ -94,9 +95,9 @@ for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
     datas = []
 
     for fund_code, name, cost in df.to_numpy():
-        fund_data = get_fund_value(fund_code)
+        # fund_data = get_fund_value(fund_code)
         # if not fund_data:
-        #     fund_data = get_fund_history(fund_code)
+        fund_data = get_fund_history(fund_code)
             
         if fund_data:
             data = {
