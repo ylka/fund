@@ -71,8 +71,12 @@ def get_fund_value(fund_code):
                 'growth_rate': vals[4].strip()
             }
             return record
+        else:
+            print("data err")
 
-    print(f'request err: {response.status_code}')
+    else:
+        print(f'request err: {response.status_code}')
+        
     return None
 
 
@@ -92,8 +96,8 @@ for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
 
     for fund_code, name, cost in tqdm(df.to_numpy()):
         fund_data = get_fund_value(fund_code)
-        if not fund_data:
-            fund_data = get_fund_history(fund_code)
+        # if not fund_data:
+        #     fund_data = get_fund_history(fund_code)
             
         if fund_data:
             data = {
