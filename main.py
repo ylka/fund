@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 
 import requests
 from bs4 import BeautifulSoup
@@ -6,11 +7,16 @@ import pandas as pd
 from email.mime.text import MIMEText
 import smtplib
 
+from tqdm import tqdm
+
+# Load environment variables from .env file
+load_dotenv()
+
 
 def send_email(result):
     # 发送邮件通知
-    sender_email = os.getenv('SENDER_EMAIL', "460646359@qq.com")
-    receiver_email = os.getenv('RECEIVER_EMAIL', "460646359@qq.com")
+    sender_email = "460646359@qq.com"
+    receiver_email = "460646359@qq.com"
     password = os.getenv('EMAIL_PASSWORD')  # 从环境变量读取密码
 
     if not password:
@@ -54,14 +60,74 @@ def get_fund_history(fund_code, pages=1):
     print('data err')
     return None
 
+# 雪球
+def get_fund_from_danjuan(fund_code):
+    url = f'https://danjuanfunds.com/djapi/fund/growth/{fund_code}?day=ty'
+
+    # 模拟浏览器请求头
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://danjuanfunds.com/',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()  # 检查请求是否成功
+
+        json_content = response.content
+        # json parse
+        import json
+        data = json.loads(json_content)
+        fund_nav_growth = data.get('data', {}).get('fund_nav_growth', [])
+        if fund_nav_growth:
+            data = fund_nav_growth[-1]
+
+            record = {
+                'date': data['date'].strip(),
+                'net_value': data['nav'].strip(),
+                'accumulated_value': data['nav'].strip(),
+                'growth_rate': data['percentage'].strip()
+            }
+
+            return record
+
+        return None
+    except requests.RequestException as e:
+        print(f"Request failed for fund {fund_code}: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"JSON parse failed for fund {fund_code}: {e}")
+        return None
+
 # https://m.dayfund.cn/ajs/ajaxdata.shtml?showtype=getfundvalue&fundcode=020433
 
 
 def get_fund_value(fund_code):
     url = f'https://m.dayfund.cn/ajs/ajaxdata.shtml?showtype=getfundvalue&fundcode={fund_code}'
-    response = requests.get(url)
-    # 2026-01-14|1.2400|1.2400|0.0764|6.57%|-0.11%|-0.0013|1.2387|1.1636|2026-01-15|09:39:59
-    if response.status_code == 200:
+    
+    # 模拟浏览器请求头
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://m.dayfund.cn/',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()  # 检查请求是否成功
+        
+        # 2026-01-14|1.2400|1.2400|0.0764|6.57%|-0.11%|-0.0013|1.2387|1.1636|2026-01-15|09:39:59
         vals = response.content.decode('utf-8').split('|')
         if len(vals) > 1:
             record = {
@@ -73,10 +139,9 @@ def get_fund_value(fund_code):
             return record
         else:
             print(f"data err: {response.content}")
-
-    else:
-        print(f'request err: {response.status_code}')
-        
+    except requests.RequestException as e:
+        print(f"Request failed for fund {fund_code}: {e}")
+    
     return None
 
 
@@ -94,11 +159,11 @@ for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
     column_data = df[0].tolist()
     datas = []
 
-    for fund_code, name, cost in df.to_numpy():
-        # fund_data = get_fund_value(fund_code)
+    for fund_code, name, cost in tqdm(df.to_numpy()):
+        fund_data = get_fund_from_danjuan(fund_code)
         # if not fund_data:
-        fund_data = get_fund_history(fund_code)
-            
+        # fund_data = get_fund_history(fund_code)
+
         if fund_data:
             data = {
                 'date': fund_data.get('date', None),
