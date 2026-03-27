@@ -1,0 +1,27 @@
+version: '1.0'
+name: pipeline-20260327
+displayName: pipeline-20260327
+triggers:
+  trigger: auto
+  schedule:
+    - cron: '* 15 10 ? * 1-5 *'
+stages:
+  - name: stage-5cb3d938
+    displayName: run
+    strategy: naturally
+    trigger: auto
+    executor: []
+    steps:
+      - step: build@python
+        name: build_python
+        displayName: Python 构建
+        pythonVersion: '3.13'
+        commands:
+          - pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+          - '# 可以使用pip下载依赖'
+          - pip install -r requirements.txt
+          - python main.py
+        caches: []
+        notify: []
+        strategy:
+          retry: '0'
