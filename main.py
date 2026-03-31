@@ -23,7 +23,7 @@ def send_email(result):
         print('password error')
     else:
         msg = MIMEText(result)
-        msg['Subject'] = "S 计划最新数据"
+        msg['Subject'] = "基金持仓最新数据"
         msg['From'] = sender_email
         msg['To'] = receiver_email
 
