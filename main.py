@@ -22,7 +22,7 @@ def send_email(result):
     if not password:
         print('password error')
     else:
-        msg = MIMEText(result)
+        msg = MIMEText(result, 'html', 'utf-8')
         msg['Subject'] = "基金持仓最新数据"
         msg['From'] = sender_email
         msg['To'] = receiver_email
@@ -154,7 +154,7 @@ def save_to_csv(data, filename):
 email_contents = []
 
 # df = pd.read_csv('s_plan.csv', header=None, dtype=str)
-for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
+for file in ["my-code.csv"]:
     df = pd.read_csv(file, header=None, dtype=str)
     column_data = df[0].tolist()
     datas = []
@@ -180,27 +180,54 @@ for file in ["my-code.csv", "s_plan.csv",  "oversea-code.csv"]:
         print(f'{file} no data')
         continue
 
-    reports = []
-    if file == "s_plan.csv":
-        reports.append('# S 计划持仓最新净值\n')
-    elif file == "oversea-code.csv":
-        reports.append('# S 计划海外最新净值\n')
-    else:
-        reports.append('# 我的持仓最新净值\n')
-
-    reports.append(f'代码,名称,成本,最新净值,收益率\n')
-
     result = sorted(datas, key=lambda x: x["yield_rate"])
-    for val in result:
+
+    rows_html = ""
+    for i,val in enumerate(result):
         net_value = val["net_value"]
-        yield_rate = f"{val['yield_rate'] * 100:.2f}%"
-        reports.append(
-            f'{val["fund_code"]},{val["name"]},{val["cost"]},{net_value},{yield_rate}\n')
+        yield_rate_val = val["yield_rate"] * 100
+        yield_rate_str = f"{yield_rate_val:.2f}%"
+        color = "#e74c3c" if yield_rate_val >= 0 else "#27ae60"
+        rows_html += f"""
+        <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
+          <td style="padding:10px 14px;border:1px solid white;">{val["fund_code"]}</td>
+          <td style="padding:10px 14px;border:1px solid white;">{val["name"]}</td>
+          <td style="padding:10px 14px;text-align:right;border:1px solid white;">{val["cost"]}</td>
+          <td style="padding:10px 14px;text-align:right;border:1px solid white;">{net_value}</td>
+          <td style="padding:10px 14px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{yield_rate_str}</td>
+        </tr>"""
 
-    email_contents.append("".join(reports))
-    email_contents.append("\r\n")
+    report_html = f"""
+    <div style="margin-bottom:24px;">
+      <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px;">我的持仓最新净值</h2>
+      <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
+        <thead>
+          <tr style="background-color:#3498db;color:white;">
+            <th style="padding:10px 14px;text-align:left;border:1px solid white;">代码</th>
+            <th style="padding:10px 14px;text-align:left;border:1px solid white;">名称</th>
+            <th style="padding:10px 14px;text-align:right;border:1px solid white;">成本</th>
+            <th style="padding:10px 14px;text-align:right;border:1px solid white;">最新净值</th>
+            <th style="padding:10px 14px;text-align:right;border:1px solid white;">收益率</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows_html}
+        </tbody>
+      </table>
+    </div>"""
 
-result = "".join(email_contents)
+    email_contents.append(report_html)
+
+result = f"""
+<html>
+<body style="font-family:Arial,sans-serif;background:#f5f6fa;padding:24px;">
+  <div style="max-width:700px;margin:0 auto;background:white;border-radius:8px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    {"".join(email_contents)}
+    <p style="color:#999;font-size:12px;margin-top:24px;">数据来源：蛋卷基金 &nbsp;|&nbsp; 自动生成，请勿回复</p>
+  </div>
+</body>
+</html>
+"""
 print(result)
 
 if result:
