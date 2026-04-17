@@ -1,8 +1,0 @@
-stages:
-  - run
-
-run_script:
-  stage: run
-  image: canton.iot-greenworks.cn:18087/glb/marshall/fund:1
-  script:
-    - python3 main.py
