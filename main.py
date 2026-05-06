@@ -87,12 +87,14 @@ def get_fund_from_danjuan(fund_code):
         fund_nav_growth = data.get('data', {}).get('fund_nav_growth', [])
         if fund_nav_growth:
             data = fund_nav_growth[-1]
+            last_data = fund_nav_growth[-2]
 
             record = {
                 'date': data['date'].strip(),
                 'net_value': data['nav'].strip(),
                 'accumulated_value': data['nav'].strip(),
-                'growth_rate': data['percentage'].strip()
+                'growth_rate': data['percentage'].strip(),
+                'last_value': last_data['nav'].strip()
             }
 
             return record
@@ -159,20 +161,23 @@ for file in ["my-code.csv"]:
     column_data = df[0].tolist()
     datas = []
 
-    for fund_code, name, cost in tqdm(df.to_numpy()):
+    for fund_code, name, cost, share in tqdm(df.to_numpy()):
         fund_data = get_fund_from_danjuan(fund_code)
         # if not fund_data:
         # fund_data = get_fund_history(fund_code)
 
         if fund_data:
+            net_value = float(fund_data.get('net_value', 0))
+            last_value = float(fund_data.get('last_value', 0))
+            daily_profit = (net_value - last_value) * float(share)
             data = {
                 'date': fund_data.get('date', None),
-                'fund_code': fund_code,
                 'net_value': fund_data.get('net_value', None),
-                'accumulated_value': fund_data.get('accumulated_value', None),
                 'name': name,
                 'cost': cost,
-                'yield_rate': float(fund_data.get('net_value', None))/float(cost) - 1
+                'share': share,
+                'daily_profit': daily_profit,
+                'yield_rate': net_value / float(cost) - 1
             }
             datas.append(data)
 
@@ -187,13 +192,16 @@ for file in ["my-code.csv"]:
         net_value = val["net_value"]
         yield_rate_val = val["yield_rate"] * 100
         yield_rate_str = f"{yield_rate_val:.2f}%"
+        daily_profit = val["daily_profit"]
+        daily_profit_str = f"{daily_profit:.2f}"
         color = "#e74c3c" if yield_rate_val >= 0 else "#27ae60"
+        profit_color = "#e74c3c" if daily_profit >= 0 else "#27ae60"
         rows_html += f"""
         <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
-          <td style="padding:10px 14px;border:1px solid white;">{val["fund_code"]}</td>
           <td style="padding:10px 14px;border:1px solid white;">{val["name"]}</td>
           <td style="padding:10px 14px;text-align:right;border:1px solid white;">{val["cost"]}</td>
           <td style="padding:10px 14px;text-align:right;border:1px solid white;">{net_value}</td>
+          <td style="padding:10px 14px;text-align:right;border:1px solid white;color:{profit_color};font-weight:bold;">{daily_profit_str}</td>
           <td style="padding:10px 14px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{yield_rate_str}</td>
         </tr>"""
 
@@ -203,10 +211,10 @@ for file in ["my-code.csv"]:
       <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
         <thead>
           <tr style="background-color:#3498db;color:white;">
-            <th style="padding:10px 14px;text-align:left;border:1px solid white;">代码</th>
             <th style="padding:10px 14px;text-align:left;border:1px solid white;">名称</th>
             <th style="padding:10px 14px;text-align:right;border:1px solid white;">成本</th>
             <th style="padding:10px 14px;text-align:right;border:1px solid white;">最新净值</th>
+            <th style="padding:10px 14px;text-align:right;border:1px solid white;">当日收益</th>
             <th style="padding:10px 14px;text-align:right;border:1px solid white;">收益率</th>
           </tr>
         </thead>
