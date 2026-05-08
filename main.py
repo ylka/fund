@@ -94,7 +94,8 @@ def get_fund_from_danjuan(fund_code):
                 'net_value': data['nav'].strip(),
                 'accumulated_value': data['nav'].strip(),
                 'growth_rate': data['percentage'].strip(),
-                'last_value': last_data['nav'].strip()
+                'last_value': last_data['nav'].strip(),
+                'percentage': data['percentage'].strip()
             }
 
             return record
@@ -112,7 +113,7 @@ def get_fund_from_danjuan(fund_code):
 
 def get_fund_value(fund_code):
     url = f'https://m.dayfund.cn/ajs/ajaxdata.shtml?showtype=getfundvalue&fundcode={fund_code}'
-    
+
     # 模拟浏览器请求头
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -124,11 +125,11 @@ def get_fund_value(fund_code):
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
     }
-    
+
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()  # 检查请求是否成功
-        
+
         # 2026-01-14|1.2400|1.2400|0.0764|6.57%|-0.11%|-0.0013|1.2387|1.1636|2026-01-15|09:39:59
         vals = response.content.decode('utf-8').split('|')
         if len(vals) > 1:
@@ -143,7 +144,7 @@ def get_fund_value(fund_code):
             print(f"data err: {response.content}")
     except requests.RequestException as e:
         print(f"Request failed for fund {fund_code}: {e}")
-    
+
     return None
 
 
@@ -177,7 +178,8 @@ for file in ["my-code.csv"]:
                 'cost': cost,
                 'share': share,
                 'daily_profit': daily_profit,
-                'yield_rate': net_value / float(cost) - 1
+                'yield_rate': net_value / float(cost) - 1,
+                'percentage': fund_data.get('percentage', '0')
             }
             datas.append(data)
 
@@ -188,21 +190,23 @@ for file in ["my-code.csv"]:
     result = sorted(datas, key=lambda x: x["yield_rate"])
 
     rows_html = ""
-    for i,val in enumerate(result):
+    for i, val in enumerate(result):
         net_value = val["net_value"]
         yield_rate_val = val["yield_rate"] * 100
         yield_rate_str = f"{yield_rate_val:.2f}%"
         daily_profit = val["daily_profit"]
         daily_profit_str = f"{daily_profit:.2f}"
+        percentage_val = float(val.get("percentage", 0))
+        percentage_str = f"{percentage_val:.2f}%"
         color = "#e74c3c" if yield_rate_val >= 0 else "#27ae60"
         profit_color = "#e74c3c" if daily_profit >= 0 else "#27ae60"
+        pct_color = "#e74c3c" if percentage_val >= 0 else "#27ae60"
         rows_html += f"""
         <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
-          <td style="padding:10px 14px;border:1px solid white;">{val["name"]}</td>
-          <td style="padding:10px 14px;text-align:right;border:1px solid white;">{val["cost"]}</td>
-          <td style="padding:10px 14px;text-align:right;border:1px solid white;">{net_value}</td>
-          <td style="padding:10px 14px;text-align:right;border:1px solid white;color:{profit_color};font-weight:bold;">{daily_profit_str}</td>
-          <td style="padding:10px 14px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{yield_rate_str}</td>
+          <td style="padding:2px 2px;border:1px solid white;">{val["name"]}</td>
+          <td style="padding:2px 2px;text-align:right;border:1px solid white;color:{pct_color};font-weight:bold;">{percentage_str}</td>
+          <td style="padding:2px 2px;text-align:right;border:1px solid white;color:{profit_color};font-weight:bold;">{daily_profit_str}</td>
+          <td style="padding:2px 2px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{yield_rate_str}</td>
         </tr>"""
 
     report_html = f"""
@@ -211,11 +215,10 @@ for file in ["my-code.csv"]:
       <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
         <thead>
           <tr style="background-color:#3498db;color:white;">
-            <th style="padding:10px 14px;text-align:left;border:1px solid white;">名称</th>
-            <th style="padding:10px 14px;text-align:right;border:1px solid white;">成本</th>
-            <th style="padding:10px 14px;text-align:right;border:1px solid white;">最新净值</th>
-            <th style="padding:10px 14px;text-align:right;border:1px solid white;">当日收益</th>
-            <th style="padding:10px 14px;text-align:right;border:1px solid white;">收益率</th>
+            <th style="padding:2px 2px;text-align:left;border:1px solid white;">名称</th>
+            <th style="padding:2px 2px;text-align:right;border:1px solid white;">日涨幅</th>
+            <th style="padding:2px 2px;text-align:right;border:1px solid white;">收益</th>
+            <th style="padding:2px 2px;text-align:right;border:1px solid white;">收益率</th>
           </tr>
         </thead>
         <tbody>
