@@ -1,16 +1,23 @@
 import os
+import warnings
+
+warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
+
 from dotenv import load_dotenv
 
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 from email.mime.text import MIMEText
 import smtplib
 
 from tqdm import tqdm
+from supabase import create_client
 
 # Load environment variables from .env file
 load_dotenv()
+
+# 初始化 Supabase 客户端
+supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 
 def send_email(result):
@@ -148,60 +155,138 @@ def get_fund_value(fund_code):
     return None
 
 
-def save_to_csv(data, filename):
-    df = pd.DataFrame(data)
-    df.to_csv(filename, index=False)
-    return df.to_csv(index=False)
+def update_supabase_prices(datas):
+    """更新 Supabase funds 表中的 current_price、yield_rate、profit，按 code 匹配"""
+    # 先查出表中所有记录，用于计算收益
+    all_records = supabase.table("funds").select("id, code, cost_price, share").execute().data
+
+    # 建立 code -> net_value 映射
+    code_to_price = {}
+    for item in datas:
+        code = item.get("code")
+        if code not in code_to_price:
+            code_to_price[code] = float(item["net_value"])
+
+    updated_count = 0
+    for rec in all_records:
+        code = rec["code"]
+        if code not in code_to_price:
+            continue
+
+        net_value = code_to_price[code]
+        cost_price = float(rec["cost_price"]) if rec.get("cost_price") else None
+        share = float(rec["share"]) if rec.get("share") else None
+
+        update_data = {"current_price": net_value}
+
+        if cost_price and cost_price > 0:
+            yield_rate = net_value / cost_price - 1
+            update_data["yield_rate"] = round(yield_rate, 6)
+
+            if share:
+                total_cost = cost_price * share
+                total_value = net_value * share
+                profit = total_value - total_cost
+                update_data["total_cost"] = round(total_cost, 2)
+                update_data["total_value"] = round(total_value, 2)
+                update_data["profit"] = round(profit, 2)
+
+        supabase.table("funds").update(update_data).eq("id", rec["id"]).execute()
+        updated_count += 1
+
+    print(f"Supabase 已更新 {updated_count} 条记录")
+
+
+def save_history_snapshot():
+    """保存当日持仓快照到 funds_history 表"""
+    from datetime import date
+
+    records = supabase.table("funds").select("total_value, total_cost, profit").execute().data
+
+    total_value = sum(float(r["total_value"]) for r in records if r.get("total_value"))
+    total_cost = sum(float(r["total_cost"]) for r in records if r.get("total_cost"))
+    total_profit = sum(float(r["profit"]) for r in records if r.get("profit"))
+    yield_rate = total_profit / total_cost if total_cost > 0 else 0
+
+    snapshot = {
+        "date": date.today().isoformat(),
+        "total_value": round(total_value, 2),
+        "total_cost": round(total_cost, 2),
+        "total_profit": round(total_profit, 2),
+        "yield_rate": round(yield_rate, 6),
+    }
+
+    # upsert 按 date 去重，同一天多次运行只保留最新
+    supabase.table("funds_history").upsert(snapshot, on_conflict="date").execute()
+    print(f"历史快照已保存: 总市值 {total_value:.2f}, 收益 {total_profit:.2f}, 收益率 {yield_rate*100:.2f}%")
 
 
 email_contents = []
 
-# df = pd.read_csv('s_plan.csv', header=None, dtype=str)
-for file in ["my-code.csv"]:
-    df = pd.read_csv(file, header=None, dtype=str)
-    column_data = df[0].tolist()
-    datas = []
+# 从 Supabase 读取持仓数据
+db_funds = supabase.table("funds").select("*").execute().data
 
-    for fund_code, name, cost, share in tqdm(df.to_numpy()):
-        fund_data = get_fund_from_danjuan(fund_code)
-        # if not fund_data:
-        # fund_data = get_fund_history(fund_code)
+if not db_funds:
+    print("数据库中没有持仓数据")
+else:
+    datas = []
+    # 同一个 code 只需获取一次价格
+    code_to_price = {}
+
+    for rec in tqdm(db_funds):
+        fund_code = rec["code"]
+        name = rec["name"]
+        cost = float(rec["cost_price"]) if rec.get("cost_price") else 0
+        share = float(rec["share"]) if rec.get("share") else 0
+
+        # 同 code 复用已获取的价格数据
+        if fund_code not in code_to_price:
+            fund_data = get_fund_from_danjuan(fund_code)
+            code_to_price[fund_code] = fund_data
+        else:
+            fund_data = code_to_price[fund_code]
 
         if fund_data:
             net_value = float(fund_data.get('net_value', 0))
             last_value = float(fund_data.get('last_value', 0))
-            daily_profit = (net_value - last_value) * float(share)
+            daily_profit = (net_value - last_value) * share
             data = {
                 'date': fund_data.get('date', None),
                 'net_value': fund_data.get('net_value', None),
                 'name': name,
-                'cost': cost,
-                'share': share,
+                'code': fund_code,
+                'cost': str(cost),
+                'share': str(share),
                 'daily_profit': daily_profit,
-                'yield_rate': net_value / float(cost) - 1,
+                'yield_rate': net_value / cost - 1 if cost > 0 else 0,
                 'percentage': fund_data.get('percentage', '0')
             }
             datas.append(data)
 
-    if datas == []:
-        print(f'{file} no data')
-        continue
+    if not datas:
+        print("没有获取到任何基金数据")
+    else:
+        # 更新 Supabase 表中的 current_price
+        update_supabase_prices(datas)
 
-    result = sorted(datas, key=lambda x: x["yield_rate"])
+        # 保存当日历史快照
+        save_history_snapshot()
 
-    rows_html = ""
-    for i, val in enumerate(result):
-        net_value = val["net_value"]
-        yield_rate_val = val["yield_rate"] * 100
-        yield_rate_str = f"{yield_rate_val:.2f}%"
-        daily_profit = val["daily_profit"]
-        daily_profit_str = f"{daily_profit:.2f}"
-        percentage_val = float(val.get("percentage", 0))
-        percentage_str = f"{percentage_val:.2f}%"
-        color = "#e74c3c" if yield_rate_val >= 0 else "#27ae60"
-        profit_color = "#e74c3c" if daily_profit >= 0 else "#27ae60"
-        pct_color = "#e74c3c" if percentage_val >= 0 else "#27ae60"
-        rows_html += f"""
+        result = sorted(datas, key=lambda x: x["yield_rate"])
+
+        rows_html = ""
+        for i, val in enumerate(result):
+            net_value = val["net_value"]
+            yield_rate_val = val["yield_rate"] * 100
+            yield_rate_str = f"{yield_rate_val:.2f}%"
+            daily_profit = val["daily_profit"]
+            daily_profit_str = f"{daily_profit:.2f}"
+            percentage_val = float(val.get("percentage", 0))
+            percentage_str = f"{percentage_val:.2f}%"
+            color = "#e74c3c" if yield_rate_val >= 0 else "#27ae60"
+            profit_color = "#e74c3c" if daily_profit >= 0 else "#27ae60"
+            pct_color = "#e74c3c" if percentage_val >= 0 else "#27ae60"
+            rows_html += f"""
         <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
           <td style="padding:2px 2px;border:1px solid white;">{val["name"]}</td>
           <td style="padding:2px 2px;text-align:right;border:1px solid white;color:{pct_color};font-weight:bold;">{percentage_str}</td>
@@ -209,7 +294,7 @@ for file in ["my-code.csv"]:
           <td style="padding:2px 2px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{yield_rate_str}</td>
         </tr>"""
 
-    report_html = f"""
+        report_html = f"""
     <div style="margin-bottom:24px;">
       <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px;">我的持仓最新净值</h2>
       <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
@@ -227,7 +312,58 @@ for file in ["my-code.csv"]:
       </table>
     </div>"""
 
-    email_contents.append(report_html)
+        email_contents.append(report_html)
+
+        # 按类型汇总占比
+        from collections import defaultdict
+        type_values = defaultdict(float)
+        total_all = 0
+        for val in datas:
+            net_value = float(val["net_value"])
+            share = float(val["share"])
+            value = net_value * share
+            # 从 db_funds 中找到对应的 type
+            fund_type = None
+            for rec in db_funds:
+                if rec["code"] == val["code"] and rec["name"] == val["name"]:
+                    fund_type = rec.get("type", "未分类")
+                    break
+            if not fund_type:
+                fund_type = "未分类"
+            type_values[fund_type] += value
+            total_all += value
+
+        # 按占比从大到小排序
+        type_sorted = sorted(type_values.items(), key=lambda x: x[1], reverse=True)
+
+        type_rows_html = ""
+        for i, (fund_type, value) in enumerate(type_sorted):
+            ratio = value / total_all * 100 if total_all > 0 else 0
+            type_rows_html += f"""
+        <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
+          <td style="padding:4px 8px;border:1px solid white;">{fund_type}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{value:.0f}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;font-weight:bold;">{ratio:.1f}%</td>
+        </tr>"""
+
+        type_html = f"""
+    <div style="margin-bottom:24px;">
+      <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px;">持仓类型占比</h2>
+      <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
+        <thead>
+          <tr style="background-color:#3498db;color:white;">
+            <th style="padding:4px 8px;text-align:left;border:1px solid white;">类型</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">市值</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">占比</th>
+          </tr>
+        </thead>
+        <tbody>
+          {type_rows_html}
+        </tbody>
+      </table>
+    </div>"""
+
+        email_contents.append(type_html)
 
 result = f"""
 <html>
