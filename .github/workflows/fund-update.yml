@@ -29,6 +29,8 @@ jobs:
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+        SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
       run: python main.py
     
     # - name: Commit changes
