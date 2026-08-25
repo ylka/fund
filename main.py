@@ -22,8 +22,8 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 def send_email(result):
     # 发送邮件通知
-    sender_email = "460646359@qq.com"
-    receiver_email = "460646359@qq.com"
+    sender_email = os.getenv('SENDER_EMAIL')  # 从环境变量读取发件人邮箱
+    receiver_email = os.getenv('RECEIVER_EMAIL')  # 从环境变量读取收件人邮箱
     password = os.getenv('EMAIL_PASSWORD')  # 从环境变量读取密码
 
     if not password:
@@ -42,8 +42,6 @@ def send_email(result):
         print("邮件已发送")
 
 # Deprecation
-
-
 def get_fund_history(fund_code, pages=1):
     url = f'http://fund.eastmoney.com/f10/F10DataApi.aspx?type=lsjz&code={fund_code}&page={pages}&per=1'
     response = requests.get(url)
