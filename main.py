@@ -219,6 +219,54 @@ def save_history_snapshot():
     print(f"历史快照已保存: 总市值 {total_value:.2f}, 收益 {total_profit:.2f}, 收益率 {yield_rate*100:.2f}%")
 
 
+def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
+    """更新最高净值，计算并返回每个基金的回撤"""
+    results = []
+
+    for code in tracked_codes:
+        fund_data = code_to_fund_data.get(code)
+        if not fund_data:
+            continue
+
+        current_price = float(fund_data.get('net_value', 0))
+
+        # 查询当前记录
+        existing = supabase.table("funds_peak").select("*").eq("code", code).execute().data
+
+        if not existing:
+            # 首次运行，写入初始最高净值
+            supabase.table("funds_peak").insert({
+                "code": code,
+                "peak_price": current_price,
+            }).execute()
+            peak_price = current_price
+            name = code
+        else:
+            peak_price = float(existing[0]["peak_price"])
+            name = existing[0].get("name") or code
+            if current_price > peak_price:
+                # 净值创新高，更新
+                supabase.table("funds_peak").update({
+                    "peak_price": current_price,
+                    "updated_at": "now()",
+                }).eq("code", code).execute()
+                peak_price = current_price
+
+        drawdown = (current_price - peak_price) / peak_price * 100 if peak_price > 0 else 0
+        results.append({
+            "code": code,
+            "name": name,
+            "current_price": current_price,
+            "peak_price": peak_price,
+            "drawdown": drawdown,
+        })
+
+    return results
+
+
+# 回撤追踪的基金
+TRACKED_CODES = ["021550", "020602", "009051", "008163"]
+
 email_contents = []
 
 # 从 Supabase 读取持仓数据
@@ -270,7 +318,20 @@ else:
         # 保存当日历史快照
         save_history_snapshot()
 
-        result = sorted(datas, key=lambda x: x["yield_rate"])
+        # 补充获取回撤追踪基金的价格（可能不在持仓里）
+        for code in TRACKED_CODES:
+            if code not in code_to_price:
+                fund_data = get_fund_from_danjuan(code)
+                code_to_price[code] = fund_data
+
+        # 给 code_to_price 里的数据补充 name（从持仓或直接用 code）
+        for code, fd in code_to_price.items():
+            if fd and 'name' not in fd:
+                # 尝试从 db_funds 找 name
+                match = next((r["name"] for r in db_funds if r["code"] == code), code)
+                fd['name'] = match
+
+        result = sorted(datas, key=lambda x: x["yield_rate"], reverse=True)
 
         rows_html = ""
         for i, val in enumerate(result):
@@ -362,6 +423,43 @@ else:
     </div>"""
 
         email_contents.append(type_html)
+
+        # 计算回撤并生成邮件内容
+        drawdown_results = update_peak_and_get_drawdown(TRACKED_CODES, code_to_price)
+
+        if drawdown_results:
+            drawdown_rows_html = ""
+            for i, item in enumerate(drawdown_results):
+                drawdown_val = item["drawdown"]
+                drawdown_str = f"{drawdown_val:.2f}%"
+                color = "#27ae60" if drawdown_val < 0 else "#333"
+                drawdown_rows_html += f"""
+        <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
+          <td style="padding:4px 8px;border:1px solid white;">{item["name"]}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["current_price"]}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["peak_price"]}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{drawdown_str}</td>
+        </tr>"""
+
+            drawdown_html = f"""
+    <div style="margin-bottom:24px;">
+      <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px;">净值回撤追踪</h2>
+      <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
+        <thead>
+          <tr style="background-color:#3498db;color:white;">
+            <th style="padding:4px 8px;text-align:left;border:1px solid white;">名称</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">当前净值</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">历史最高</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">回撤</th>
+          </tr>
+        </thead>
+        <tbody>
+          {drawdown_rows_html}
+        </tbody>
+      </table>
+    </div>"""
+
+            email_contents.append(drawdown_html)
 
 result = f"""
 <html>
