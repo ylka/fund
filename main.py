@@ -229,6 +229,7 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
             continue
 
         current_price = float(fund_data.get('net_value', 0))
+        percentage = fund_data.get('percentage', '0')
 
         # 查询当前记录
         existing = supabase.table("funds_peak").select("*").eq("code", code).execute().data
@@ -259,6 +260,7 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
             "current_price": current_price,
             "peak_price": peak_price,
             "drawdown": drawdown,
+            "percentage": percentage,
         })
 
     return results
@@ -433,9 +435,13 @@ else:
                 drawdown_val = item["drawdown"]
                 drawdown_str = f"{drawdown_val:.2f}%"
                 color = "#27ae60" if drawdown_val < 0 else "#333"
+                pct_val = float(item.get("percentage", 0))
+                pct_str = f"{pct_val:.2f}%"
+                pct_color = "#e74c3c" if pct_val >= 0 else "#27ae60"
                 drawdown_rows_html += f"""
         <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
           <td style="padding:4px 8px;border:1px solid white;">{item["name"]}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{pct_color};font-weight:bold;">{pct_str}</td>
           <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["current_price"]}</td>
           <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["peak_price"]}</td>
           <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{drawdown_str}</td>
@@ -448,6 +454,7 @@ else:
         <thead>
           <tr style="background-color:#3498db;color:white;">
             <th style="padding:4px 8px;text-align:left;border:1px solid white;">名称</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">昨日涨跌</th>
             <th style="padding:4px 8px;text-align:right;border:1px solid white;">当前净值</th>
             <th style="padding:4px 8px;text-align:right;border:1px solid white;">历史最高</th>
             <th style="padding:4px 8px;text-align:right;border:1px solid white;">回撤</th>
