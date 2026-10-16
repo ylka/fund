@@ -375,6 +375,48 @@ else:
 
         email_contents.append(report_html)
 
+        # 计算回撤并生成邮件内容
+        drawdown_results = update_peak_and_get_drawdown(TRACKED_CODES, code_to_price)
+
+        if drawdown_results:
+            drawdown_rows_html = ""
+            for i, item in enumerate(drawdown_results):
+                drawdown_val = item["drawdown"]
+                drawdown_str = f"{drawdown_val:.2f}%"
+                color = "#27ae60" if drawdown_val < 0 else "#333"
+                pct_val = float(item.get("percentage", 0))
+                pct_str = f"{pct_val:.2f}%"
+                pct_color = "#e74c3c" if pct_val >= 0 else "#27ae60"
+                drawdown_rows_html += f"""
+        <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
+          <td style="padding:4px 8px;border:1px solid white;">{item["name"]}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{pct_color};font-weight:bold;">{pct_str}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["current_price"]}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["peak_price"]}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{drawdown_str}</td>
+        </tr>"""
+
+            drawdown_html = f"""
+    <div style="margin-bottom:24px;">
+      <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px;">净值回撤追踪</h2>
+      <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
+        <thead>
+          <tr style="background-color:#3498db;color:white;">
+            <th style="padding:4px 8px;text-align:left;border:1px solid white;">名称</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">昨日涨跌</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">当前净值</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">历史最高</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">回撤</th>
+          </tr>
+        </thead>
+        <tbody>
+          {drawdown_rows_html}
+        </tbody>
+      </table>
+    </div>"""
+
+            email_contents.append(drawdown_html)
+
         # 按类型汇总占比
         from collections import defaultdict
         type_values = defaultdict(float)
@@ -425,48 +467,6 @@ else:
     </div>"""
 
         email_contents.append(type_html)
-
-        # 计算回撤并生成邮件内容
-        drawdown_results = update_peak_and_get_drawdown(TRACKED_CODES, code_to_price)
-
-        if drawdown_results:
-            drawdown_rows_html = ""
-            for i, item in enumerate(drawdown_results):
-                drawdown_val = item["drawdown"]
-                drawdown_str = f"{drawdown_val:.2f}%"
-                color = "#27ae60" if drawdown_val < 0 else "#333"
-                pct_val = float(item.get("percentage", 0))
-                pct_str = f"{pct_val:.2f}%"
-                pct_color = "#e74c3c" if pct_val >= 0 else "#27ae60"
-                drawdown_rows_html += f"""
-        <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
-          <td style="padding:4px 8px;border:1px solid white;">{item["name"]}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{pct_color};font-weight:bold;">{pct_str}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["current_price"]}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["peak_price"]}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{drawdown_str}</td>
-        </tr>"""
-
-            drawdown_html = f"""
-    <div style="margin-bottom:24px;">
-      <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px;">净值回撤追踪</h2>
-      <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
-        <thead>
-          <tr style="background-color:#3498db;color:white;">
-            <th style="padding:4px 8px;text-align:left;border:1px solid white;">名称</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">昨日涨跌</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">当前净值</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">历史最高</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">回撤</th>
-          </tr>
-        </thead>
-        <tbody>
-          {drawdown_rows_html}
-        </tbody>
-      </table>
-    </div>"""
-
-            email_contents.append(drawdown_html)
 
 result = f"""
 <html>
