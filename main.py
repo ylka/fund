@@ -266,8 +266,8 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
     return results
 
 
-# 回撤追踪的基金
-TRACKED_CODES = ["021550", "020602", "009051", "008163"]
+# 回撤追踪的基金（从 funds_peak 表读取）
+TRACKED_CODES = [r["code"] for r in supabase.table("funds_peak").select("code").execute().data]
 
 email_contents = []
 
