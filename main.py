@@ -41,30 +41,6 @@ def send_email(result):
         server.quit()
         print("邮件已发送")
 
-# Deprecation
-def get_fund_history(fund_code, pages=1):
-    url = f'http://fund.eastmoney.com/f10/F10DataApi.aspx?type=lsjz&code={fund_code}&page={pages}&per=1'
-    response = requests.get(url)
-    html_content = response.content
-    soup = BeautifulSoup(html_content, 'html.parser')
-    table = soup.find('table', {'class': 'w782 comm lsjz'})
-    if table:
-        rows = table.find_all('tr')[1:]  # Skip the header row
-        for row in rows:
-            columns = row.find_all('td')
-            if len(columns) > 1:
-                record = {
-                    'date': columns[0].text.strip(),
-                    'net_value': columns[1].text.strip(),
-                    'accumulated_value': columns[2].text.strip(),
-                    'growth_rate': columns[3].text.strip()
-                }
-
-                return record
-
-    print('data err')
-    return None
-
 # 雪球
 def get_fund_from_danjuan(fund_code):
     url = f'https://danjuanfunds.com/djapi/fund/growth/{fund_code}?day=ty'
@@ -219,8 +195,17 @@ def save_history_snapshot():
     print(f"历史快照已保存: 总市值 {total_value:.2f}, 收益 {total_profit:.2f}, 收益率 {yield_rate*100:.2f}%")
 
 
+# 分红识别阈值：理论净值与实际净值的差异超过该比例时，认为发生了分红
+DIVIDEND_THRESHOLD = 0.005
+
+
 def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
-    """更新最高净值，计算并返回每个基金的回撤"""
+    """更新最高净值，计算并返回每个基金的回撤
+
+    为处理分红导致的净值"假跌"：
+    用前一天净值和当天涨跌幅推算理论净值，与接口返回的实际净值对比，
+    若差异较大则视为分红，将该差异同步到 peak_price 上，保证回撤口径一致。
+    """
     results = []
 
     for code in tracked_codes:
@@ -230,35 +215,77 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
 
         current_price = float(fund_data.get('net_value', 0))
         percentage = fund_data.get('percentage', '0')
+        try:
+            pct = float(percentage) / 100
+        except (TypeError, ValueError):
+            pct = 0
 
         # 查询当前记录
         existing = supabase.table("funds_peak").select("*").eq("code", code).execute().data
 
+        from datetime import datetime, timezone
+        # 统一用 UTC 日期比较（updated_at 的 now() 存的是 UTC）
+        today = datetime.now(timezone.utc).date().isoformat()
+
         if not existing:
-            # 首次运行，写入初始最高净值
+            # 首次运行，写入初始最高净值和前一天净值
             supabase.table("funds_peak").insert({
                 "code": code,
                 "peak_price": current_price,
+                "prev_price": current_price,
             }).execute()
             peak_price = current_price
             name = code
         else:
             peak_price = float(existing[0]["peak_price"])
             name = existing[0].get("name") or code
+            prev_price = existing[0].get("prev_price")
+
+            # 判断上次更新是否是今天（同一天重复运行不滚动 prev_price）
+            last_updated = existing[0].get("updated_at")
+            is_same_day = False
+            if last_updated:
+                try:
+                    last_date = datetime.fromisoformat(
+                        last_updated.replace("Z", "+00:00")
+                    ).date().isoformat()
+                    is_same_day = (last_date == today)
+                except (TypeError, ValueError):
+                    is_same_day = False
+
+            # 分红检测：用前一天净值和涨跌幅推算理论净值
+            if prev_price:
+                prev_price = float(prev_price)
+                theoretical = prev_price * (1 + pct)
+                diff = current_price - theoretical
+                # 差异超过阈值，视为分红，把差异同步到 peak 上
+                # 同一天重复运行时跳过，避免用今天的净值当前一天净值导致误判
+                if (not is_same_day and theoretical > 0
+                        and abs(diff) / theoretical > DIVIDEND_THRESHOLD):
+                    peak_price = peak_price + diff
+                    print(f"[{code}] 检测到分红/除权，理论净值 {theoretical:.4f} vs 实际 {current_price:.4f}，"
+                          f"peak 调整 {diff:+.4f} -> {peak_price:.4f}")
+
+            # 净值创新高则更新 peak
             if current_price > peak_price:
-                # 净值创新高，更新
-                supabase.table("funds_peak").update({
-                    "peak_price": current_price,
-                    "updated_at": "now()",
-                }).eq("code", code).execute()
                 peak_price = current_price
+
+            # 只有不是同一天才滚动 prev_price
+            update_data = {
+                "peak_price": round(peak_price, 4),
+                "updated_at": "now()",
+            }
+            if not is_same_day:
+                update_data["prev_price"] = current_price
+
+            supabase.table("funds_peak").update(update_data).eq("code", code).execute()
 
         drawdown = (current_price - peak_price) / peak_price * 100 if peak_price > 0 else 0
         results.append({
             "code": code,
             "name": name,
             "current_price": current_price,
-            "peak_price": peak_price,
+            "peak_price": round(peak_price, 4),
             "drawdown": drawdown,
             "percentage": percentage,
         })
