@@ -195,10 +195,6 @@ def save_history_snapshot():
     print(f"历史快照已保存: 总市值 {total_value:.2f}, 收益 {total_profit:.2f}, 收益率 {yield_rate*100:.2f}%")
 
 
-# 分红识别阈值：理论净值与实际净值的差异超过该比例时，认为发生了分红
-DIVIDEND_THRESHOLD = 0.005
-
-
 def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
     """更新最高净值，计算并返回每个基金的回撤
 
@@ -224,6 +220,8 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
         # 查询当前记录
         existing = supabase.table("funds_peak").select("*").eq("code", code).execute().data
 
+        adjust_diff = 0
+
         if not existing:
             # 首次运行，写入初始最高净值、前一天净值及其日期
             supabase.table("funds_peak").insert({
@@ -244,14 +242,15 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
             is_same_day = (prev_date is not None and str(prev_date) == str(nav_date))
 
             # 分红检测：用前一天净值和涨跌幅推算理论净值
-            if prev_price:
+            # 理论净值与实际净值有差异即视为除权/分红，把差异同步到 peak 上
+            # 同一交易日重复运行时跳过，避免用今天的净值当前一天净值导致误判
+            if prev_price and not is_same_day:
                 prev_price = float(prev_price)
                 theoretical = prev_price * (1 + pct)
                 diff = current_price - theoretical
-                # 差异超过阈值，视为分红，把差异同步到 peak 上
-                # 同一交易日重复运行时跳过，避免用今天的净值当前一天净值导致误判
-                if (not is_same_day and theoretical > 0
-                        and abs(diff) / theoretical > DIVIDEND_THRESHOLD):
+                # 用一个极小值排除浮点误差
+                if abs(diff) > 1e-6:
+                    adjust_diff = diff
                     peak_price = peak_price + diff
                     print(f"[{code}] 检测到分红/除权，理论净值 {theoretical:.4f} vs 实际 {current_price:.4f}，"
                           f"peak 调整 {diff:+.4f} -> {peak_price:.4f}")
@@ -279,6 +278,7 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
             "peak_price": round(peak_price, 4),
             "drawdown": drawdown,
             "percentage": percentage,
+            "adjust_diff": adjust_diff,
         })
 
     return results
@@ -405,12 +405,20 @@ else:
                 pct_val = float(item.get("percentage", 0))
                 pct_str = f"{pct_val:.2f}%"
                 pct_color = "#e74c3c" if pct_val >= 0 else "#27ae60"
+                adjust = item.get("adjust_diff", 0)
+                if adjust:
+                    adjust_str = f"{adjust:+.4f}"
+                    adjust_color = "#e67e22"
+                else:
+                    adjust_str = "-"
+                    adjust_color = "#999"
                 drawdown_rows_html += f"""
         <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
           <td style="padding:4px 8px;border:1px solid white;">{item["name"]}</td>
           <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{pct_color};font-weight:bold;">{pct_str}</td>
           <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["current_price"]}</td>
           <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["peak_price"]}</td>
+          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{adjust_color};font-weight:bold;">{adjust_str}</td>
           <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{drawdown_str}</td>
         </tr>"""
 
@@ -424,6 +432,7 @@ else:
             <th style="padding:4px 8px;text-align:right;border:1px solid white;">昨日涨跌</th>
             <th style="padding:4px 8px;text-align:right;border:1px solid white;">当前净值</th>
             <th style="padding:4px 8px;text-align:right;border:1px solid white;">历史最高</th>
+            <th style="padding:4px 8px;text-align:right;border:1px solid white;">除权</th>
             <th style="padding:4px 8px;text-align:right;border:1px solid white;">回撤</th>
           </tr>
         </thead>
