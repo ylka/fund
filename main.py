@@ -215,6 +215,7 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
 
         current_price = float(fund_data.get('net_value', 0))
         percentage = fund_data.get('percentage', '0')
+        nav_date = fund_data.get('date')  # 净值对应的交易日
         try:
             pct = float(percentage) / 100
         except (TypeError, ValueError):
@@ -223,16 +224,13 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
         # 查询当前记录
         existing = supabase.table("funds_peak").select("*").eq("code", code).execute().data
 
-        from datetime import datetime, timezone
-        # 统一用 UTC 日期比较（updated_at 的 now() 存的是 UTC）
-        today = datetime.now(timezone.utc).date().isoformat()
-
         if not existing:
-            # 首次运行，写入初始最高净值和前一天净值
+            # 首次运行，写入初始最高净值、前一天净值及其日期
             supabase.table("funds_peak").insert({
                 "code": code,
                 "peak_price": current_price,
                 "prev_price": current_price,
+                "prev_date": nav_date,
             }).execute()
             peak_price = current_price
             name = code
@@ -240,18 +238,10 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
             peak_price = float(existing[0]["peak_price"])
             name = existing[0].get("name") or code
             prev_price = existing[0].get("prev_price")
+            prev_date = existing[0].get("prev_date")
 
-            # 判断上次更新是否是今天（同一天重复运行不滚动 prev_price）
-            last_updated = existing[0].get("updated_at")
-            is_same_day = False
-            if last_updated:
-                try:
-                    last_date = datetime.fromisoformat(
-                        last_updated.replace("Z", "+00:00")
-                    ).date().isoformat()
-                    is_same_day = (last_date == today)
-                except (TypeError, ValueError):
-                    is_same_day = False
+            # 净值日期和已存的 prev_date 相同，说明是同一交易日重复运行
+            is_same_day = (prev_date is not None and str(prev_date) == str(nav_date))
 
             # 分红检测：用前一天净值和涨跌幅推算理论净值
             if prev_price:
@@ -259,7 +249,7 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
                 theoretical = prev_price * (1 + pct)
                 diff = current_price - theoretical
                 # 差异超过阈值，视为分红，把差异同步到 peak 上
-                # 同一天重复运行时跳过，避免用今天的净值当前一天净值导致误判
+                # 同一交易日重复运行时跳过，避免用今天的净值当前一天净值导致误判
                 if (not is_same_day and theoretical > 0
                         and abs(diff) / theoretical > DIVIDEND_THRESHOLD):
                     peak_price = peak_price + diff
@@ -270,13 +260,14 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
             if current_price > peak_price:
                 peak_price = current_price
 
-            # 只有不是同一天才滚动 prev_price
+            # 只有新交易日才滚动 prev_price 和 prev_date
             update_data = {
                 "peak_price": round(peak_price, 4),
                 "updated_at": "now()",
             }
             if not is_same_day:
                 update_data["prev_price"] = current_price
+                update_data["prev_date"] = nav_date
 
             supabase.table("funds_peak").update(update_data).eq("code", code).execute()
 
