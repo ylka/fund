@@ -248,8 +248,8 @@ def update_peak_and_get_drawdown(tracked_codes, code_to_fund_data):
                 prev_price = float(prev_price)
                 theoretical = prev_price * (1 + pct)
                 diff = current_price - theoretical
-                # 用一个极小值排除浮点误差
-                if abs(diff) > 1e-6:
+                # 差异超过 0.0005 才视为除权/分红，过滤涨跌幅精度误差
+                if abs(diff) > 0.0005:
                     adjust_diff = diff
                     peak_price = peak_price + diff
                     print(f"[{code}] 检测到分红/除权，理论净值 {theoretical:.4f} vs 实际 {current_price:.4f}，"
