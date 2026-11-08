@@ -23,7 +23,8 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 def send_email(result):
     # 发送邮件通知
     sender_email = os.getenv('SENDER_EMAIL')  # 从环境变量读取发件人邮箱
-    receiver_email = os.getenv('RECEIVER_EMAIL')  # 从环境变量读取收件人邮箱
+    # 从环境变量读取收件人邮箱，多个用逗号分隔
+    receiver_emails = [e.strip() for e in (os.getenv('RECEIVER_EMAIL') or '').split(',') if e.strip()]
     password = os.getenv('EMAIL_PASSWORD')  # 从环境变量读取密码
 
     if not password:
@@ -32,12 +33,12 @@ def send_email(result):
         msg = MIMEText(result, 'html', 'utf-8')
         msg['Subject'] = "基金持仓最新数据"
         msg['From'] = sender_email
-        msg['To'] = receiver_email
+        msg['To'] = ', '.join(receiver_emails)
 
         # 连接到 SMTP 服务器并发送邮件
         server = smtplib.SMTP_SSL('smtp.qq.com', 465)
         server.login(sender_email, password)
-        server.sendmail(sender_email, receiver_email, msg.as_string())
+        server.sendmail(sender_email, receiver_emails, msg.as_string())
         server.quit()
         print("邮件已发送")
 
