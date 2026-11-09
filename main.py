@@ -367,23 +367,23 @@ else:
             profit_color = "#e74c3c" if daily_profit >= 0 else "#27ae60"
             pct_color = "#e74c3c" if percentage_val >= 0 else "#27ae60"
             rows_html += f"""
-        <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
-          <td style="padding:2px 2px;border:1px solid white;">{val["name"]}</td>
-          <td style="padding:2px 2px;text-align:right;border:1px solid white;color:{pct_color};font-weight:bold;">{percentage_str}</td>
-          <td style="padding:2px 2px;text-align:right;border:1px solid white;color:{profit_color};font-weight:bold;">{daily_profit_str}</td>
-          <td style="padding:2px 2px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{yield_rate_str}</td>
+        <tr>
+          <td style="padding:2px 2px;border-bottom:1px solid #eee;">{val["name"]}</td>
+          <td style="padding:2px 2px;text-align:right;border-bottom:1px solid #eee;color:{pct_color};font-weight:bold;">{percentage_str}</td>
+          <td style="padding:2px 2px;text-align:right;border-bottom:1px solid #eee;color:{profit_color};font-weight:bold;">{daily_profit_str}</td>
+          <td style="padding:2px 2px;text-align:right;border-bottom:1px solid #eee;color:{color};font-weight:bold;">{yield_rate_str}</td>
         </tr>"""
 
         report_html = f"""
     <div style="margin-bottom:24px;">
-      <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px;">我的持仓最新净值</h2>
+      <h2 style="color:#2c3e50;padding-bottom:8px;">我的持仓最新净值</h2>
       <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
         <thead>
-          <tr style="background-color:#3498db;color:white;">
-            <th style="padding:2px 2px;text-align:left;border:1px solid white;">名称</th>
-            <th style="padding:2px 2px;text-align:right;border:1px solid white;">日涨幅</th>
-            <th style="padding:2px 2px;text-align:right;border:1px solid white;">收益</th>
-            <th style="padding:2px 2px;text-align:right;border:1px solid white;">收益率</th>
+          <tr style="border-bottom:2px solid #999;">
+            <th style="padding:2px 2px;text-align:left;border-bottom:1px solid #eee;">名称</th>
+            <th style="padding:2px 2px;text-align:right;border-bottom:1px solid #eee;">日涨幅</th>
+            <th style="padding:2px 2px;text-align:right;border-bottom:1px solid #eee;">收益</th>
+            <th style="padding:2px 2px;text-align:right;border-bottom:1px solid #eee;">收益率</th>
           </tr>
         </thead>
         <tbody>
@@ -414,27 +414,27 @@ else:
                     adjust_str = "-"
                     adjust_color = "#999"
                 drawdown_rows_html += f"""
-        <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
-          <td style="padding:4px 8px;border:1px solid white;">{item["name"]}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{pct_color};font-weight:bold;">{pct_str}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["current_price"]}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{item["peak_price"]}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{adjust_color};font-weight:bold;">{adjust_str}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;color:{color};font-weight:bold;">{drawdown_str}</td>
+        <tr>
+          <td style="padding:4px 8px;border-bottom:1px solid #eee;">{item["name"]}</td>
+          <td style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;color:{pct_color};font-weight:bold;">{pct_str}</td>
+          <td style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">{item["current_price"]}</td>
+          <td style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">{item["peak_price"]}</td>
+          <td style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;color:{adjust_color};font-weight:bold;">{adjust_str}</td>
+          <td style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;color:{color};font-weight:bold;">{drawdown_str}</td>
         </tr>"""
 
             drawdown_html = f"""
     <div style="margin-bottom:24px;">
-      <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px;">净值回撤追踪</h2>
+      <h2 style="color:#2c3e50;padding-bottom:8px;">净值回撤追踪</h2>
       <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
         <thead>
-          <tr style="background-color:#3498db;color:white;">
-            <th style="padding:4px 8px;text-align:left;border:1px solid white;">名称</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">昨日涨跌</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">当前净值</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">历史最高</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">除权</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">回撤</th>
+          <tr style="border-bottom:2px solid #999;">
+            <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #eee;">名称</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">昨日涨跌</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">当前净值</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">历史最高</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">除权</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">回撤</th>
           </tr>
         </thead>
         <tbody>
@@ -471,21 +471,21 @@ else:
         for i, (fund_type, value) in enumerate(type_sorted):
             ratio = value / total_all * 100 if total_all > 0 else 0
             type_rows_html += f"""
-        <tr style="background-color:#{'ecf0f1' if i % 2 == 0 else 'ffffff'};">
-          <td style="padding:4px 8px;border:1px solid white;">{fund_type}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;">{value:.0f}</td>
-          <td style="padding:4px 8px;text-align:right;border:1px solid white;font-weight:bold;">{ratio:.1f}%</td>
+        <tr>
+          <td style="padding:4px 8px;border-bottom:1px solid #eee;">{fund_type}</td>
+          <td style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">{value:.0f}</td>
+          <td style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;font-weight:bold;">{ratio:.1f}%</td>
         </tr>"""
 
         type_html = f"""
     <div style="margin-bottom:24px;">
-      <h2 style="color:#2c3e50;border-bottom:2px solid #3498db;padding-bottom:8px;">持仓类型占比</h2>
+      <h2 style="color:#2c3e50;padding-bottom:8px;">持仓类型占比</h2>
       <table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:14px;">
         <thead>
-          <tr style="background-color:#3498db;color:white;">
-            <th style="padding:4px 8px;text-align:left;border:1px solid white;">类型</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">市值</th>
-            <th style="padding:4px 8px;text-align:right;border:1px solid white;">占比</th>
+          <tr style="border-bottom:2px solid #999;">
+            <th style="padding:4px 8px;text-align:left;border-bottom:1px solid #eee;">类型</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">市值</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid #eee;">占比</th>
           </tr>
         </thead>
         <tbody>
@@ -498,8 +498,8 @@ else:
 
 result = f"""
 <html>
-<body style="font-family:Arial,sans-serif;background:#f5f6fa;padding:24px;">
-  <div style="max-width:700px;margin:0 auto;background:white;border-radius:8px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+<body style="font-family:Arial,sans-serif;">
+  <div style="max-width:700px;margin:0 auto;">
     {"".join(email_contents)}
     <p style="color:#999;font-size:12px;margin-top:24px;">数据来源：蛋卷基金 &nbsp;|&nbsp; 自动生成，请勿回复</p>
   </div>
